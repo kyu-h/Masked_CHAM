@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <assert.h>
-#include <math.h>
 
 typedef unsigned int 	u32;
 typedef unsigned short 	u16;
@@ -15,11 +13,11 @@ typedef unsigned short 	u16;
 
 #define BILLION 1000000000L
 
-static u32 x=123456789, y=362436069, z=521288629;
-
 u16 secretkey64[] = {0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e};
 u16 plaintext64[] = {0x1100, 0x3322, 0x5544, 0x7766};
 u16 roundkey64[16]= {0,};
+
+static u32 x=123456789, y=362436069, z=521288629;
 
 u32 xorshf96(void) {
     u32 t;
@@ -257,10 +255,10 @@ void KeyGen64(u16* RK, u16*K){
 	u16 tmp0, tmp1, tmp2;
 	u32 i;
 
-	for (i=0; i<8; i++){
-		tmp0 = ROL(K[i], 1);
-		tmp1 = ROL(K[i], 8);
-		tmp2 = ROL(K[i], 11);
+	for (i=0;i<8;i++){
+		tmp0 = ROL(K[i],1);
+		tmp1 = ROL(K[i],8);
+		tmp2 = ROL(K[i],11);
 
 		RK[i] = tmp0 ^ tmp1 ^ K[i];
 		RK[((i+8)^1)] = tmp0 ^ tmp2 ^ K[i];
@@ -274,74 +272,346 @@ void Enc64(u16* X, u16* RK){
 	X1 = X[1];
 	X0 = X[0];
 
-	u16 tmp0, tmp1, tmp2, tmp3, tmp4;
-	u32 i;
+	u16 tmp0,tmp1,tmp2,tmp3,tmp4;
+	u32 i = 0;
 
-	for(i=0; i<40; i++){
+	u16 M[10] = {0, };
+
+	for(int a=0;a<10;a++){
 		u32 n=2;
-        u32 nt=1000;
+		u32 nt=1000;
 
-        u32 x[n+1];
-        u32 D[n];
+		u32 x[n+1];
+		u32 D[n];
 
+		for(int z=0; z<10; z++){
+			M[z] = xorshf96();
+			//printf("%04x, ", M[z]);
+		}
+		//printf("\n");
+
+		//***************** 1 Round start *******************//
+
+		printf("%u\n", i);
 		tmp0 = ROL(X1,1);
 		tmp1 = tmp0 ^ RK[2*i % 16];
-        u32 xin = tmp1;
+		u16 tmp1_1R_L = tmp1;
 
+		tmp1 = tmp1 ^ M[0];
+
+		u32 xin = tmp1;
 		//timings();
-        share(xin,x,n);
-        refresh(x,n);
-        for(int i=0;i<nt;i++){
-            HO_BtoA(D,x,n);
-        }
+		share(xin,x,n);
+		refresh(x,n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+		tmp1 = xorop(x,n);
 
-        tmp1 = xorop(x,n);
-        tmp2 = X0 ^(2*i); //tmp1, tmp2에 대하여 masking이 필요
-        xin = tmp2;
-        //timings();
-        share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
+		tmp2 = X0^(2*i);
+		u16 tmp2_1R_L = tmp2;
+		tmp2 = tmp2 ^ M[0];
 
-        tmp2 = xorop(x, n);
+		xin = tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+		tmp2 = xorop(x, n);
+
 		tmp3 = tmp1 + tmp2;
+		M[1] = ROL(M[1],8);
+		tmp3 = tmp3 + M[1];
+
 		tmp4 = ROL(KS_AtoB(tmp3, 0, 3),8);
 
 		X0   = X1;
 		X1   = X2;
 		X2   = X3;
 		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
 
-		tmp0 = ROL(X1, 8);
+		tmp0 = ROL(X1,8);
 		tmp1 = tmp0 ^ RK[(2*i + 1)% 16];
+		u16 tmp1_1R_R = tmp1;
+		tmp1 = tmp1 ^ M[2];
 
-        xin = tmp1;
-        //timings();
-        share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
+		xin = tmp1;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+		tmp1 = xorop(x, n);
 
-        tmp1 = xorop(x, n);
-		tmp2 = X0 ^(2*i + 1);
+		tmp2 = X0^(2*i+1);
+		u16 tmp2_1R_R = tmp2;
+		tmp2 = tmp2 ^ M[2];
 
-        xin=tmp2;
-        //timings();
-        share(xin, x, n);
-        refresh(x, n);
-        for(int i=0;i<nt;i++){
-            HO_BtoA(D,x,n);
-        }
+		xin=tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+		tmp2 = xorop(x, n);
 
-        tmp2 = xorop(x, n);
 		tmp3 = tmp1 + tmp2;
-		tmp4 = ROL(KS_AtoB(tmp3, 0, 3),1);
+		M[3] = ROL(M[3],1);
+		tmp3 = tmp3 + M[3];
+
+		tmp4 = ROL(KS_AtoB(tmp3, 0, 3), 1);
 
 		X0   = X1;
 		X1   = X2;
 		X2   = X3;
 		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
+
+		i++;
+
+		//***************** 1 Round Finished *******************//
+		//***************** 2 Round start *******************//
+		printf("%u\n", i);
+		tmp0 = ROL(X1,1);
+		tmp1 = tmp0 ^ RK[2*i % 16];
+		u16 tmp1_2R_L = tmp1;
+		tmp1 = tmp1 ^ M[4];
+
+		xin = tmp1;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+		tmp1 = xorop(x, n);
+
+		tmp2 = X0^(2*i);
+		u16 tmp2_2R_L = tmp2;
+		tmp2 = tmp2 ^ M[4];
+
+		xin=tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+		tmp2 = xorop(x, n);
+
+		tmp3 = tmp1 + tmp2;
+		M[5] = ROL(M[5],8);
+		tmp3 = tmp3 + M[5];
+
+		tmp4 = ROL(KS_AtoB(tmp3, 0, 3), 8);
+
+		X0   = X1;
+		X1 = tmp1_1R_L + tmp2_1R_L; //K0'
+		X1 = ROL(X1,8);
+		X2   = X3;
+		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
+
+		tmp0 = ROL(X1,8);
+		tmp1 = tmp0 ^ RK[(2*i + 1)% 16];
+		u16 tmp1_2R_R = tmp1;
+		tmp1 = tmp1 ^ M[6];
+
+		xin = tmp1;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+		tmp1 = xorop(x, n);
+
+		tmp2 = X0^(2*i+1);
+		u16 tmp2_2R_R = tmp2;
+		tmp2 = tmp2 ^ M[6];
+
+		xin=tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+		tmp2 = xorop(x, n);
+
+		tmp3 = tmp1 + tmp2;
+		M[7] = ROL(M[7],1);
+		tmp3 = tmp3 + M[7];
+
+		tmp4 = ROL(KS_AtoB(tmp3, 0, 3), 1);
+
+		X0   = X1;
+		X1 = tmp1_1R_R + tmp2_1R_R; //K1'
+		X1 = ROL(X1,1);
+		X2   = X3;
+		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
+
+		i++;
+
+		//***************** 2 Round Finished *******************//
+		//***************** 3 Round start *******************//
+		printf("%u\n", i);
+
+		tmp0 = ROL(X1,1);
+		tmp1 = tmp0 ^ RK[2*i % 16];
+		u16 tmp1_3R_L = tmp1;
+		tmp1 = tmp1 ^ M[8];
+
+		xin = tmp1;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+		tmp1 = xorop(x, n);
+
+		tmp2 = X0^(2*i);
+		u16 tmp2_3R_L = tmp2;
+		tmp2 = tmp2 ^ M[8];
+
+		xin=tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+		tmp2 = xorop(x, n);
+
+		tmp3 = tmp1 + tmp2;
+		M[9] = ROL(M[9],8);
+		tmp3 = tmp3 + M[9];
+
+		tmp4 = ROL(KS_AtoB(tmp3, 0, 3), 8);
+
+		X0   = X1;
+		X1 = tmp1_2R_L + tmp2_2R_L; //K2'
+		X1 = ROL(X1,8);
+		X2   = X3;
+		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
+
+		tmp0 = ROL(X1,8);
+		tmp1 = tmp0 ^ RK[(2*i + 1)% 16];
+
+		xin = tmp1;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+		tmp1 = xorop(x, n);
+
+		tmp2 = X0^(2*i+1);
+
+		xin=tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+		tmp2 = xorop(x, n);
+
+		tmp3 = tmp1 + tmp2;
+		tmp4 = ROL(KS_AtoB(tmp3, 0, 3), 1);
+
+		X0   = X1;
+		X1 = tmp1_2R_R + tmp2_2R_R; //K3'
+		X1 = ROL(X1,1);
+		X2   = X3;
+		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
+
+		i++;
+
+		//***************** 3 Round Finished *******************//
+		//***************** 4 Round start *******************//
+		printf("%u\n", i);
+
+		tmp0 = ROL(X1,1);
+		tmp1 = tmp0 ^ RK[2*i % 16];
+
+		xin = tmp1;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+		tmp1 = xorop(x, n);
+
+		tmp2 = X0^(2*i);
+
+		xin=tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+		tmp2 = xorop(x, n);
+
+		tmp3 = tmp1 + tmp2;
+		tmp4 = ROL(KS_AtoB(tmp3, 0, 3), 8);
+
+		X0   = X1;
+		X1 = tmp1_3R_L + tmp2_3R_L; //K4'
+		X1 = ROL(X1,8);
+		X2   = X3;
+		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
+
+		tmp0 = ROL(X1,8);
+		tmp1 = tmp0 ^ RK[(2*i + 1)% 16];
+
+		xin = tmp1;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0; i<nt; i++){
+			HO_BtoA(D, x, n);
+		}
+
+		tmp1 = xorop(x, n);
+
+		tmp2 = X0^(2*i+1);
+
+		xin=tmp2;
+		//timings();
+		share(xin, x, n);
+		refresh(x, n);
+		for(int i=0;i<nt;i++){
+			HO_BtoA(D,x,n);
+		}
+
+		tmp2 = xorop(x, n);
+
+		tmp3 = tmp1 + tmp2;
+		tmp4 = ROL(KS_AtoB(tmp3, 0, 3), 1);
+
+		X0   = X1;
+		X1   = X2;
+		X2   = X3;
+		X3   = tmp4;
+		printf("%04x %04x %04x %04x\n", X0, X1, X2, X3);
+
+		i++;
+
+		//***************** 4 Round Finished *******************//
 	}
 
 	X[3] = X3;
@@ -358,10 +628,10 @@ void KeyGen128(u32* RK, u32*K){
 	u32 tmp0, tmp1, tmp2;
 	u32 i;
 
-	for (i=0; i<4; i++){
-		tmp0 = ROL32(K[i], 1);
-		tmp1 = ROL32(K[i], 8);
-		tmp2 = ROL32(K[i], 11);
+	for (i=0;i<4;i++){
+		tmp0 = ROL32(K[i],1);
+		tmp1 = ROL32(K[i],8);
+		tmp2 = ROL32(K[i],11);
 
 		RK[i] = tmp0 ^ tmp1 ^ K[i];
 		RK[((i+4)^1)] = tmp0 ^ tmp2 ^ K[i];
@@ -375,68 +645,26 @@ void Enc128(u32* X, u32* RK){
 	X1 = X[1];
 	X0 = X[0];
 
-	u32 tmp0, tmp1, tmp2, tmp3, tmp4;
+	u32 tmp0,tmp1,tmp2,tmp3,tmp4;
 	u32 i;
 
-	for(i=0; i<40; i++){
-        u32 n=2;
-        u32 nt=1000;
-
-        u32 x[n+1];
-        u32 D[n];
-
+	for(i=0;i<40;i++){
 		tmp0 = ROL32(X1,1);
 		tmp1 = tmp0 ^ RK[2*i % 8];
-
-		u32 xin = tmp1;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++){
-            HO_BtoA(D, x, n);
-        }
-
-        tmp1 = xorop(x, n);
-
 		tmp2 = X0^(2*i);
-
-		xin = tmp2;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0;i<nt;i++){
-            HO_BtoA(D,x,n);
-        }
-
-        tmp2 = xorop(x, n);
 		tmp3 = tmp1 + tmp2;
-		tmp4 = ROL32(KS_AtoB(tmp3, 0, 3),8);
+		tmp4 = ROL32(tmp3,8);
 
 		X0   = X1;
 		X1   = X2;
 		X2   = X3;
 		X3   = tmp4;
 
-		tmp0 = ROL32(X1, 8);
+		tmp0 = ROL32(X1,8);
 		tmp1 = tmp0 ^ RK[(2*i + 1)% 8];
-
-		xin = tmp1;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
-
-        tmp1 = xorop(x, n);
-
-		tmp2 = X0^(2*i + 1);
-
-		xin = tmp2;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
-
-        tmp2 = xorop(x, n);
+		tmp2 = X0^(2*i+1);
 		tmp3 = tmp1 + tmp2;
-		tmp4 = ROL32(KS_AtoB(tmp3, 0, 3),1);
+		tmp4 = ROL32(tmp3,1);
 
 		X0   = X1;
 		X1   = X2;
@@ -449,6 +677,7 @@ void Enc128(u32* X, u32* RK){
 	X[1] = X1;
 	X[0] = X0;
 }
+
 
 u32 secretkey256[] = {0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0xf3f2f1f0, 0xf7f6f5f4, 0xfbfaf9f8, 0xfffefdfc};
 u32 plaintext256[] = {0x33221100, 0x77665544, 0xbbaa9988, 0xffeeddcc};
@@ -475,66 +704,26 @@ void Enc256(u32* X, u32* RK){
 	X1 = X[1];
 	X0 = X[0];
 
-	u32 tmp0, tmp1, tmp2, tmp3, tmp4;
+	u32 tmp0,tmp1,tmp2,tmp3,tmp4;
 	u32 i;
 
 	for(i=0;i<48;i++){
-        u32 n=2;
-        u32 nt=1000;
-
-        u32 x[n+1];
-        u32 D[n];
-
-		tmp0 = ROL32(X1, 1);
+		tmp0 = ROL32(X1,1);
 		tmp1 = tmp0 ^ RK[2*i % 16];
-
-		u32 xin = tmp1;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
-
-        tmp1 = xorop(x, n);
-
 		tmp2 = X0^(2*i);
-
-		xin = tmp2;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
-
-        tmp2 = xorop(x, n);
 		tmp3 = tmp1 + tmp2;
-		tmp4 = ROL32(KS_AtoB(tmp3, 0, 3),8);
+		tmp4 = ROL32(tmp3,8);
 
 		X0   = X1;
 		X1   = X2;
 		X2   = X3;
 		X3   = tmp4;
 
-		tmp0 = ROL32(X1, 8);
+		tmp0 = ROL32(X1,8);
 		tmp1 = tmp0 ^ RK[(2*i + 1)% 16];
-
-		xin = tmp1;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
-
-        tmp1 = xorop(x, n);
-
-		tmp2 = X0^(2*i + 1);
-
-		xin = tmp2;
-		share(xin, x, n);
-        refresh(x, n);
-        for(int i=0; i<nt; i++)
-            HO_BtoA(D, x, n);
-
-        tmp2 = xorop(x, n);
+		tmp2 = X0^(2*i+1);
 		tmp3 = tmp1 + tmp2;
-		tmp4 = ROL32(KS_AtoB(tmp3, 0, 3),1);
+		tmp4 = ROL32(tmp3,1);
 
 		X0   = X1;
 		X1   = X2;

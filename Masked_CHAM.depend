@@ -1,0 +1,8 @@
+# depslib dependency file v1.0
+1545984906 source:c:\users\kyu\desktop\cham\masked_cham\main.c
+	<stdio.h>
+	<stdlib.h>
+	<time.h>
+	<assert.h>
+	<math.h>
+
